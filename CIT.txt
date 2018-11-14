@@ -1,0 +1,338 @@
+CIT
+
+Hoy les traigo este script ' CIT ' para convertir imagenes a texto utilizando CONVERT y TESSERACT.
+
+Convert lo que hace es convertir archivos de un formato a otro, ya sean JPG, PNG, JPEG, archivos PDF, entre otros...
+Tesseract se encarga de obtener el texto. Este es un OCR.
+
+Tesseract https://github.com/tesseract-ocr
+Convert https://imagemagick.org/script/convert.php
+
+Pueden obtener CIT ya terminado en: https://github.com/MilanDroid/CIT
+Para empezar el scrpit es un '.sh' el cual lo ejecutaremos asi
+
+Primero seria darle los permisos a CIT
+
+...
+$ chmod -R 777 cit.sh
+...
+
+Una vez con los permisos asignados simplemente ejecutamos el siguiente comando para inicializarlo.
+
+...
+$ ./cit.sh
+...
+
+Para solicitar ayuda pueden ejecutar: 
+
+...
+$ ./cit.sh -h
+...
+
+Ya que no es complicado de usar solo tiene una breve explicacion de como usarlo, no demasiado.
+Si quieren colaborar con cambios pueden hacerlo en el repositorio arriba compartido.
+
+**COMENZANDO CON LA EXPLICACION DEL CODIGO**
+
+Bien, como primer punto seria decir cuales son las funciones que se crearon.
+
+Funciones:
+	* getHelp()
+	* getParams()
+	* checkRoute()
+	* createDirectory()
+	* convertFile()
+	* getFiles()
+
+Al empezar el script lo primero que hace es validar si se han escrito o no alguna opcion como ser '-h'.
+
+...
+
+while getopts ':h' option; do
+	case "$option" in
+	    h) 	getHelp
+	    	;;
+	   \?) 	printf "[ \e[31mERROR\e[0m ] Error: Option: '-%s$OPTARG' does not exist.">&2
+			echo -e "\n\nTo get help use: '-h'"
+	    	exit 1
+	    	;;
+	esac
+done
+
+...
+
+Como se puede observar la unica opcion habilitada es '-h' por lo cual es la unica que ejecutara alguna accion de lo contrario como se observa retornara Error.
+
+El recorrido de las opciones lo hacemos con un while, el cual recorre getopts el cual almacena las opciones ingresadas. Luego revisamos los casos para determinar que se ejecutara con cada opcion.
+
+En el caso de '-h' ejecutara la funcion **getHelp** que mostrara una breve informacion:
+
+...
+
+getHelp () {
+	echo '		 ________   ___   _________   
+		|\   ____\ |\  \ |\___   ___\ 
+		\ \  \___| \ \  \\|___ \  \_| 
+		 \ \  \     \ \  \    \ \  \  
+		  \ \  \____ \ \  \    \ \  \ 
+		   \ \_______\\ \__\    \ \__\
+		    \|_______| \|__|     \|__|'
+	
+	echo -e "\n***Bienvenido a la ayuda de CIT***\nPara utilizar CIT debes tener instalado convert y tesseract."
+	echo -e "\nPara utilizar CIT simplemente ejecuta el archivo y espera las peticiones, \nen la primera te pedira la ruta en la cual estan los archivos que deseas convertir."
+	echo -e "En la segunda deberas ingresar el tipo de archivo que deseas que sean convertidos.\nRecuerda separar los tipos de archivos por punto y coma ';' y no ponerles el punto 'jpg;png'."
+	echo -e "\nAl finalizar tus archivos convertidos quedaran en la carpeta TU_DIRECTORIO/tifs/"
+	echo -e "\n\nPara apoyar visita el repositorio en https://github.com/MilanDroid/CIT"
+	exit 1                   
+}
+
+...
+
+Ya se habran dado cuenta simplemente es una impresion de texto. Como habran podido observar hay un **echo'TEST_TEXT'** con comillas simples, esto para que el 'echo' respete todos los espacios y tabs.
+
+Una vez que el while que lee las opciones a pasado entonces iniciara ejecutando las funciones en este orden
+
+...
+
+getParams
+checkRoute
+createDirectory
+getFiles
+
+...
+
+**getParams**
+
+...
+getParams () {
+	read -p "Ruta en la que se encuentran los archivos: " -r
+	if [ $REPLY == null ]
+	then
+		echo -e "Debe proporcionar una ruta."
+		echo -e "[\e[5m....\e[25m] Saliendo..."
+		sleep 2
+	    exit 1
+	else
+		echo -e "Ruta: $REPLY\n"
+		route="$REPLY"
+		directory=$route/txt
+	fi
+
+	read -p "Escribe la extension de los archivos que deseas convertir (jpg, png, jpeg): " -r
+	if [ $REPLY == null ]
+	then
+		echo -e "Debe proporcionar una extension valida."
+		echo -e "[\e[5m....\e[25m] Saliendo..."
+		sleep 2
+	    exit 1
+	else
+		echo -e "Tipo de archivos: $REPLY\n"
+		ext=(${REPLY//;/ })
+	fi
+}
+...
+
+Aqui lo que se hace es consultar en que ruta se encuentran los archivos.
+
+La ruta debe de ser el PATH completo por ejemplo '/home/aBrenes/Dektop/Platzi'
+
+Para hacer la consulta y que la respuesta la obtengamos como una variable usaremos
+
+...
+read -p "ESCRIBE_TU_CONSULTA_AQUI"
+...
+
+El retorno de 'read' volvera en la variable '$REPLY', entonces la leemos y revisamos que no este vacia, si esta vacia entonces lanzamos un mensaje de Error y ejecutamos '**exit 1**'.
+
+En caso que la ruta devuelta no sea nula entonces procedemos a preguntar: Cual es la extension de los archivos que deseas usar?. Entonces le damos la extension ya sea 'jpg, png, etc...' **sin punto '.jpg'**, se pueden especificar diferentes tipos de archivos separandolos por ';' por ejemplo: 'jpg;png'.
+
+**checkRoute () **
+
+...
+
+checkRoute () {
+	if [ ! -d "$route" ]
+	then
+		echo -e "[ \e[31mERROR\e[0m ] El directorio $route no existe..."
+		exit 1
+	else
+		#Llenando el array con los elementos encontrados en la ruta otorgada
+		IFS=!
+		files=(`find $route -printf %f!`)
+	fi
+}
+
+...
+
+El siguiente paso es verificar si la ruta especificada en la funcion anterior. Para eso utilizamos:
+
+...
+if [ ! -d "$route" ]
+...
+
+Con esto nos retorna un TRUE si la ruta no existe.
+En caso de que no exista, retorna Error y cierra.
+En caso contrario llena un array con los archivos encontrados.
+
+...
+IFS=!
+files=(`find $route -printf %f!`)
+...
+
+**createDirectory () **
+...
+
+createDirectory () {
+	if [ ! -d "$directory" ]
+	then
+		mkdir $directory || exit 1
+		echo -e "[ \e[32mok\e[0m ] Directio $directory creado, aqui se guardaran los resultados"
+	else
+		read -p "El directorio $directory ya existe, desea eliminarlo y continuar con el proceso. Y/N?" -n 1 -r
+		echo # (optional) move to a new line
+		if [[ ! $REPLY =~ ^[Yy]$ ]]
+		then
+			echo -e "[\e[5m....\e[25m] Saliendo..."
+			sleep 2
+		    exit 1
+		else
+			echo -e "Eliminando directorio..."
+			sleep 1
+			sudo rm -rf "$directory/" || exit 1
+			echo -e "[ \e[32mok\e[0m ] Directorio $directory/ eliminado"
+			echo -e "Creando directorio..."
+			sleep 1
+			mkdir $directory || exit 1
+			echo -e "[ \e[32mok\e[0m ] Directio $directory/ creado, aqui se guardaran los resultados"
+			sleep 1
+		fi
+	fi
+
+	if [ ! -d "$directory/tifs" ]
+	then
+		mkdir "$directory/tifs" || exit 1
+	else
+		read -p "El directorio $directory/tifs/ ya existe, desea eliminarlo y continuar con el proceso. Y/N?" -n 1 -r
+		echo # (optional) move to a new line
+		if [[ ! $REPLY =~ ^[Yy]$ ]]
+		then
+			echo -e "[\e[5m....\e[25m] Saliendo..."
+			sleep 2
+		    exit 1
+		else
+			echo -e "Eliminando directorio..."
+			sleep 1
+			sudo rm -rf "$directory/tifs/" || exit 1
+			echo -e "[ \e[32mok\e[0m ] Directorio $directory/tifs/ eliminado"
+			echo -e "Creando directorio..."
+			sleep 1
+			mkdir "$directory/tifs" || exit 1
+		fi
+	fi
+}
+
+...
+
+Ahora es el turno de crear los directorios en donde se almacenaran los archivos transformados en texto y tambien un directorio intermedio el cual se usara para almacenar los '.tif' mientras se usan.
+
+Se verifica que el directorio exista, si no existe entonces se crea.
+
+...
+mkdir $directory || exit 1
+echo -e "[ \e[32mok\e[0m ] Directio $directory creado, aqui se guardaran los resultados"
+...
+
+En caso de que ya exista te pedira permiso para vaciarlo.
+
+En caso de que tu respuesta sea afirmativa, ya sea con 'Y' o 'y' entonces procede a eliminar el directorio para volverlo a crear en limpio con .
+
+...
+sudo rm -rf "$directory/" || exit 1
+...
+
+El '**exit 1**' es por si llegase a ocurrir algun error entonces despliega el error y cierra.
+
+El mismo proceso se repite para las 2 rutas que antes les detalle, la ruta para los archivos 'txt' y la ruta para los archivos 'tif'.
+
+**getFiles () **
+...
+	count=0
+	countError=0
+
+	for i in ${!files[@]}
+	do
+		if [[ "${ext[@]}" =~ "${files[$i]##*.}" ]]
+		then
+		   	convertFile "${files[$i]}"
+		fi
+	done
+
+	echo -e "\nEliminando archivos temporales en $directory/tifs/...\n"
+	sudo rm -rf "$directory/tifs/" || exit 1
+	echo -e "\e[32mCorrectos\e[0m: $count  \e[31mErrores\e[0m: $countError"
+	echo -e "\nFinalizado, para ver los archivos ingresar a $directory/..."
+	unset ALL_PROXY
+...
+
+Una vez terminado el proceso de checks y creacion de rutas procedemos a obtener solo los archivos con las extensiones seleccionadas.
+
+Para ello iniciamos con los contadores de errores y entonces hacemos un recorrido del arreglo en el que anteriormente habiamos almacenado los archivos de la ruta seleccionada.
+
+...
+for i in ${!files[@]}
+do
+	if [[ "${ext[@]}" =~ "${files[$i]##*.}" ]]
+	then
+	   	convertFile "${files[$i]}"
+	fi
+done
+...
+
+Tambien en esta parte se llama la funcion  **convertFile () **, esto cada vez que encuentre un archivo con la extension especificada.
+
+Al finalizar la busqueda entonces imprime la cantidad de archivos convertidos y la cantidad de errores. Luego elimina el directorio transitorio de los archivos 'tif'.
+
+**convertFile () **
+...
+convertFile () {
+	alertError=0
+
+	echo -e "Realizando conversion de $1 ..."
+	convert "$route/$1" "$directory/tifs/${1%.*}.tif" || alertError=1
+	tesseract "$directory/tifs/${1%.*}.tif" "$directory/${1%.*}" || alertError=2
+
+	if [[ $alertError == 0 ]]; then
+		echo -e "[ \e[32mok\e[0m ] Archivo saliente => $directory/${1%.*}.txt\n"
+		let count++
+	elif [[ $alerError == 1 ]]; then
+		echo -e "[ \e[31mERROR\e[0m ] Error generando el archivo .tif ...\n"
+		let countError++
+	elif [[ $alerError == 2 ]]; then
+		echo -e "[ \e[31mERROR\e[0m ] Error generando el archivo .txt ...\n"
+		let countError++
+	fi
+}
+...
+
+Esta es la funcion en la cual se utiliza Tesseract-OCR para obtener el texto en los archivos.
+Recibimos un parametro, el cual sera el archivo que nos envia la funcion **getFiles**.
+
+Aqui tambien utilizamos una variable erro para saber si todo salio bien, primero se imprime un mensaje en el cual detalla que archivo se esta trabajando.
+
+Convierte el archivo a un archivo del tipo 'tif'
+...
+convert "$route/$1" "$directory/tifs/${1%.*}.tif" || alertError=1
+... 
+
+En caso de que retorne un error alertError se convierte en 1 con lo cual imprimimos un mensaje en especifico para este error.
+
+Una vez convertido, procedemos a obtener el texto con Tesseract. Para ello llamamos al comando
+...
+tesseract "$directory/tifs/${1%.*}.tif" "$directory/${1%.*}" || alertError=2
+..
+
+Y le pasamos la ruta del archivo y la ruta de salida.
+
+Al finalizar todo la pantalla nos mostrara un recorrido de los archivos tratados y de todos los pasos para cada uno.
+
+Ademas de ello devolvera la cantidad de Aciertos y Errores ocurridos.
